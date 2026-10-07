@@ -1,0 +1,47 @@
+# Example resourced configuration. `gpuctl init` generates a real one from nvidia-smi.
+# Restart the daemon after changing it (claims survive a restart).
+
+[daemon]
+# Default runtime directory: $XDG_RUNTIME_DIR/resourced (per-user install).
+# System install: the unit sets RESOURCED_RUNTIME_DIR=/run/resourced.
+# runtime_dir = "/run/resourced"
+# Shared install: users in this group may use the socket (the service account must be a member).
+# socket_group = "gpuusers"
+sample_interval = 30   # seconds between resource samples
+probe_timeout = 10     # seconds before a probe (nvidia-smi, disk) counts as failed
+# nvidia_smi = "nvidia-smi"
+
+# GPUs managed by resourced. The UUID is authoritative; alias and index are for convenience.
+[[gpu]]
+uuid = "GPU-00000000-0000-0000-0000-000000000000"
+alias = "gpu0"
+index = 0
+
+[[gpu]]
+uuid = "GPU-11111111-1111-1111-1111-111111111111"
+alias = "gpu1"
+index = 1
+
+# Advisory resource limits. Tasks should follow them; resourced never blocks or kills anything.
+# Limits are inclusive: free space <= warn/stop value, or used % >= value, reaches that level.
+# Keys: warn_free_gib stop_free_gib warn_free_pct stop_free_pct warn_used_pct stop_used_pct
+# The values below are examples, not recommendations.
+[[check]]
+name = "ram"
+type = "ram"            # MemAvailable
+warn_free_gib = 200
+stop_free_gib = 100
+
+[[check]]
+name = "data"
+type = "disk"
+path = "/data"
+warn_free_pct = 20
+stop_free_pct = 10
+
+[[check]]
+name = "tmp"
+type = "disk"
+path = "/tmp"
+warn_used_pct = 80
+stop_used_pct = 90

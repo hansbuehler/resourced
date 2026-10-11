@@ -86,6 +86,13 @@
       allow socket access in the sandbox (for Codex CLI:
       `[sandbox_workspace_write] network_access = true`). Do not escalate to
       bypass the sandbox without asking first.
+- Launch every GPU process as `gpuctl run --gpus N -- python ...`, never by
+  setting `CUDA_VISIBLE_DEVICES` yourself or after `eval "$(gpuctl env ...)"`.
+  In a sandboxed agent (Codex CLI) GPUs are only visible to commands that run
+  outside the sandbox, and the host's agent rules allow exactly that form to
+  do so; other forms (including `gpuctl run --allocation REF`) need the user's
+  approval to leave the sandbox. A GPU program that finds no device must not
+  silently fall back to CPU while holding a claim.
 - Treat Git working trees (for example under `~/python`) as source
   repositories rather than general-purpose data or artifact storage.
   Regularly inspect repository status, total footprint, untracked files, and

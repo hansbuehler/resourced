@@ -237,8 +237,27 @@ locally.
 - Check it from inside the sandbox:
   `codex sandbox -c 'sandbox_mode="workspace-write"' gpuctl status` (use the full path to `gpuctl` if
   `~/.local/bin` is not on the sandbox's `PATH`).
+- **GPUs are invisible inside the Codex sandbox.** It gives commands a fresh `/dev` without the NVIDIA device
+  files, and neither `writable_roots` nor permission profiles can add them (tested with 0.149.1). A claim made
+  in the sandbox succeeds, but the program then finds no GPU. Since GPU work is Python, let only
+  `gpuctl run --gpus N -- python ...` start outside the sandbox, with a Codex rule in
+  `~/.codex/rules/default.rules` (adjust the paths to your install and interpreters):
+
+  ```
+  prefix_rule(
+      pattern=[["gpuctl", "/home/hans/.local/bin/gpuctl"], "run", "--gpus", ["1", "2", "3", "4"], "--",
+               ["python", "python3", "/home/hans/vaae/bin/python", "/home/hans/vaae/bin/python3"]],
+      decision="allow",
+  )
+  ```
+
+  Agents must then launch GPU processes exactly in that form; a command started after
+  `eval "$(gpuctl env ...)"`, with other options before `--gpus`, or through `gpuctl run --allocation REF`
+  (the reference changes every time) still runs in the sandbox unless you approve it. Anything after
+  `-- python` runs unsandboxed without a prompt. `nvidia-smi` needs no rule: the daemon runs it outside the
+  sandbox. Check the rule with `codex execpolicy check --rules ~/.codex/rules/default.rules gpuctl run --gpus 1 -- python x.py`.
 - Other agents: allow connecting to `$XDG_RUNTIME_DIR/resourced/resourced.sock` (per-user install) or
-  `/run/resourced/resourced.sock` (system install).
+  `/run/resourced/resourced.sock` (system install), and give GPU commands access to `/dev/nvidia*`.
 
 ### Exit codes
 

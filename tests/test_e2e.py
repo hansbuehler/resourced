@@ -287,7 +287,7 @@ def test_init_writes_config_and_refuses_overwrite(short_tmp, monkeypatch, capfd)
     assert 'uuid = "GPU-a"' in text
     assert 'nvidia_smi = "/fake/bin/nvidia-smi"' in text
     out = capfd.readouterr().out
-    assert "sandboxed coding agent" in out and str(short_tmp / "resourced") in out and "writable_roots" in out
+    assert "sandboxed coding agent" in out and str(short_tmp / "resourced") in out and "network_access = true" in out
     assert main(["init", "--output", str(target)]) == 1
     assert main(["init", "--output", str(target), "--force"]) == 0
 

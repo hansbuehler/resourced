@@ -371,9 +371,9 @@ def cmd_init(args) -> int:
         socket_dir = None
     if socket_dir:
         print(
-            f"\nIf gpuctl runs inside a sandboxed coding agent (e.g. Codex CLI's workspace-write mode), it needs\n"
-            f"{socket_dir} reachable (plus any disk-check path you add to this config). For Codex CLI, add under\n"
-            f'[sandbox_workspace_write] in ~/.codex/config.toml: writable_roots = ["{socket_dir}/"]'
+            f"\nIf gpuctl runs inside a sandboxed coding agent, the sandbox must allow connecting to the Unix socket\n"
+            f"in {socket_dir}. Codex CLI blocks it unless commands have network access; in ~/.codex/config.toml set\n"
+            f'sandbox_mode = "workspace-write" and, under [sandbox_workspace_write], network_access = true.'
         )
     return 0
 

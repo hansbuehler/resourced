@@ -19,16 +19,17 @@ gpuctl service enable --user      # install the systemd unit, start at boot, sta
 gpuctl status
 ```
 
-Needs Python 3.13 and `nvidia-smi`. `gpuctl init` also prints the runtime directory a sandboxed coding agent
-(Codex CLI, etc.) needs reachable, since its sandbox otherwise blocks `gpuctl` from reaching the socket; see
-[examples/HOST_AGENTS.md](examples/HOST_AGENTS.md). `gpuctl service enable --dry-run` shows the unit and commands without
+Needs Python 3.13 and `nvidia-smi`. Both `pipx` and `uv tool` put `gpuctl` in `~/.local/bin`; if the shell
+cannot find it, run `pipx ensurepath` or `uv tool update-shell` and open a new shell. Coding agents that run
+commands in a sandbox need one extra setting, see [Sandboxed coding agents](#sandboxed-coding-agents).
+`gpuctl service enable --dry-run` shows the unit and commands without
 doing anything. `gpuctl service disable` stops the autostart.
 
 Per-user installs need *lingering* so the service keeps running after you log out
 (`sudo loginctl enable-linger $USER`); `gpuctl service enable --user` tells you when it is off.
 
-Update with `pipx upgrade resourced` and restart the service (`systemctl --user restart resourced`);
-claims survive a restart.
+Update with `pipx upgrade resourced` (or `uv tool upgrade resourced`) and restart the service
+(`systemctl --user restart resourced`); claims survive a restart.
 
 ### Install modes
 
@@ -202,9 +203,42 @@ Errors raise `resourced.ResourcedError` with `.code` and `.message`.
 `gpuctl agent-instructions` prints a short snippet for `CLAUDE.md` / `AGENTS.md`. For a machine-wide baseline
 (project-independent resource guardrails: output directories, progress logging, detached-job environment
 variables, `gpuctl resources` thresholds and STOP handling, treating Git trees as source), merge
-[examples/HOST_AGENTS.md](examples/HOST_AGENTS.md) into a global instructions file such as `~/.codex/AGENTS.md`.
+[examples/HOST_AGENTS.md](examples/HOST_AGENTS.md) and the `gpuctl agent-instructions` output into the agent's
+user-level instructions file, which applies to every project of that user:
+
+| Agent | User-level file | Machine-wide (all users) |
+| --- | --- | --- |
+| Codex CLI | `~/.codex/AGENTS.md` | — |
+| Claude Code | `~/.claude/CLAUDE.md` | `/etc/claude-code/CLAUDE.md` |
+
 [examples/PROJECT_AGENTS.md](examples/PROJECT_AGENTS.md) is a starting template for a single project's own
-`AGENTS.md` / `CLAUDE.md` on top of that baseline.
+`AGENTS.md` / `CLAUDE.md` on top of that baseline. Remove any older GPU or resource policy from project files, so
+agents do not follow two sets of rules. These files are instructions, not enforcement: `gpuctl verify` is what
+detects a program that bypassed `gpuctl`.
+
+### Sandboxed coding agents
+
+`gpuctl` talks to the daemon over a Unix socket. Agents that run commands in a sandbox must be allowed to connect
+to it, otherwise `gpuctl` reports `no permission to use ... socket` and `gpuctl resources` falls back to measuring
+locally.
+
+- **Codex CLI** (tested with 0.149.1 on Linux) treats a Unix socket connection as network access. Adding the
+  runtime directory to `writable_roots` does not help. In `~/.codex/config.toml`:
+
+  ```toml
+  sandbox_mode = "workspace-write"
+
+  [sandbox_workspace_write]
+  network_access = true
+  ```
+
+  This also gives sandboxed commands general network access. With the `network_proxy` feature enabled, Unix
+  socket destinations additionally need an explicit allow rule (not tested here).
+- Check it from inside the sandbox:
+  `codex sandbox -c 'sandbox_mode="workspace-write"' gpuctl status` (use the full path to `gpuctl` if
+  `~/.local/bin` is not on the sandbox's `PATH`).
+- Other agents: allow connecting to `$XDG_RUNTIME_DIR/resourced/resourced.sock` (per-user install) or
+  `/run/resourced/resourced.sock` (system install).
 
 ### Exit codes
 
@@ -289,7 +323,7 @@ There is no database and nothing is stored in `/tmp`. The runtime directory (tmp
 | Symptom | Check |
 | --- | --- |
 | `cannot find the resourced socket` | Is the daemon running? `systemctl --user status resourced`, `gpuctl service enable --user` |
-| `no permission to use ... socket` | Join the socket group of the shared install and log in again; if no `socket_group` is set in the config, set it and restart the service |
+| `no permission to use ... socket` | Inside a coding agent's sandbox: allow socket access, see [Sandboxed coding agents](#sandboxed-coding-agents). Otherwise join the socket group of the shared install and log in again; if no `socket_group` is set in the config, set it and restart the service |
 | System service fails to start (`status=203/EXEC`) | The Python in `ExecStart` is not readable by `resourced` (home directory?); reinstall under `/opt` and re-run `service enable --system` |
 | `nvidia-smi not found ...` in `gpuctl status` or the log | `gpuctl init` records the path it found; otherwise the daemon searches `PATH`, `/usr/lib/wsl/lib`, `/usr/bin`, `/usr/local/bin`. Install the driver or set `nvidia_smi = "/full/path"` under `[daemon]` |
 | Daemon exits right away | Run `resourced --config <file>` in a terminal; messages are printed (bad config, duplicate daemon, ...) |

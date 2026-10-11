@@ -93,6 +93,13 @@
   do so; other forms (including `gpuctl run --allocation REF`) need the user's
   approval to leave the sandbox. A GPU program that finds no device must not
   silently fall back to CPU while holding a claim.
+- Run everything that does not need a GPU (tests, data preparation, analysis)
+  with `JAX_PLATFORMS=cpu`, and `CUDA_VISIBLE_DEVICES=` (empty) for other CUDA
+  frameworks such as PyTorch. A JAX program started outside `gpuctl` otherwise
+  opens a context on every GPU, including GPUs claimed by other jobs, and
+  `gpuctl verify` reports it as `FOREIGN PROCESS`. If a project's test setup
+  does not enforce this, set it on the command line, e.g.
+  `JAX_PLATFORMS=cpu python -m pytest ...`.
 - Treat Git working trees (for example under `~/python`) as source
   repositories rather than general-purpose data or artifact storage.
   Regularly inspect repository status, total footprint, untracked files, and

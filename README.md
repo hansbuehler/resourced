@@ -158,6 +158,36 @@ The claim stays until explicitly released. The **owner PID** (for an agent: its 
 required, is shown in `gpuctl status`, and is what `gpuctl verify` uses to tell your processes from others.
 One-off runs never use a development claim's GPUs.
 
+### CPU-only programs
+
+Keep programs that do not need a GPU (tests, data preparation, analysis) off the GPUs explicitly. JAX opens a
+context on **every** visible GPU when it starts, even for CPU work, including GPUs that resourced has granted to
+other jobs; `gpuctl verify` then reports `FOREIGN PROCESS` or `UNCLAIMED USE`, and new claims skip those GPUs.
+
+- JAX: `JAX_PLATFORMS=cpu`.
+- PyTorch and other CUDA frameworks: `CUDA_VISIBLE_DEVICES=` (empty) hides all GPUs.
+
+For a pytest suite, enforce it in the top-level `conftest.py`, and only allow GPU tests when pytest itself runs
+on a claim (`gpuctl run` sets `RESOURCED_ALLOCATION`):
+
+```python
+import os
+
+import pytest
+
+ON_CLAIMED_GPU = bool(os.environ.get("RESOURCED_ALLOCATION"))
+if not ON_CLAIMED_GPU:
+    os.environ["JAX_PLATFORMS"] = "cpu"          # before any test module imports JAX
+
+
+def pytest_collection_modifyitems(config, items):
+    if not ON_CLAIMED_GPU:
+        skip = pytest.mark.skip(reason="needs a GPU: gpuctl run --gpus 1 -- python -m pytest -m gpu")
+        for item in items:
+            if "gpu" in item.keywords:
+                item.add_marker(skip)
+```
+
 ### Status, checks, recovery
 
 ```sh
@@ -349,6 +379,7 @@ There is no database and nothing is stored in `/tmp`. The runtime directory (tmp
 | `XDG_RUNTIME_DIR is not set` | Set `runtime_dir` in the config, or use a login session / lingering |
 | Claims vanish after logout | Per-user service without lingering: `sudo loginctl enable-linger $USER` |
 | `unclaimed GPU(s) have running processes` | Something is using a GPU outside resourced; `gpuctl verify` lists the PIDs |
+| The same PID on every GPU (`FOREIGN PROCESS` / `UNCLAIMED USE`) | Usually a CPU-only JAX program such as a test run; start it with `JAX_PLATFORMS=cpu`, see [CPU-only programs](#cpu-only-programs) |
 | A GPU stays claimed | `gpuctl status` shows the owner; if it is `DEAD`, `gpuctl release --force --gpu <gpu>` |
 
 ## Development

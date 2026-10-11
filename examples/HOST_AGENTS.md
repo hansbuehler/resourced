@@ -1,15 +1,20 @@
 <!--
-  Generic, project-agnostic agent guardrails for a machine running resourced.
-  Intended to be merged into a global instructions file read by your coding
-  agent, for example ~/.codex/AGENTS.md or ~/.claude/CLAUDE.md, so every
-  project on the machine gets the same baseline. Adjust names, paths and
-  timeouts to fit your setup; nothing here is resourced-specific except the
-  "Check resource headroom" bullet, which assumes `gpuctl` is installed.
+  Generic, project-agnostic agent guardrails for a HOST machine running
+  resourced. Intended to be merged into a global instructions file read by
+  your coding agent, for example ~/.codex/AGENTS.md or ~/.claude/CLAUDE.md,
+  so every project on the machine gets the same baseline. Adjust names,
+  paths and timeouts to fit your setup; nothing here is resourced-specific
+  except the "Check resource headroom" bullet, which assumes `gpuctl` is
+  installed.
 
   Also run `gpuctl agent-instructions` once and append its output next to
   this section (it documents gpuctl claim/release and is generated from the
   installed resourced version, so do not hand-copy it here; regenerate it
   after an upgrade instead of editing it by hand).
+
+  Per-project additions (project-specific environment variables, output
+  paths, style guide) belong in that project's own AGENTS.md / CLAUDE.md
+  instead: see examples/PROJECT_AGENTS.md for a starting template.
 -->
 
 ## Host Resource Guardrails

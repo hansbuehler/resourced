@@ -200,7 +200,9 @@ Errors raise `resourced.ResourcedError` with `.code` and `.message`.
 `gpuctl agent-instructions` prints a short snippet for `CLAUDE.md` / `AGENTS.md`. For a machine-wide baseline
 (project-independent resource guardrails: output directories, progress logging, detached-job environment
 variables, `gpuctl resources` thresholds and STOP handling, treating Git trees as source), merge
-[examples/AGENTS.md](examples/AGENTS.md) into a global instructions file such as `~/.codex/AGENTS.md`.
+[examples/HOST_AGENTS.md](examples/HOST_AGENTS.md) into a global instructions file such as `~/.codex/AGENTS.md`.
+[examples/PROJECT_AGENTS.md](examples/PROJECT_AGENTS.md) is a starting template for a single project's own
+`AGENTS.md` / `CLAUDE.md` on top of that baseline.
 
 ### Exit codes
 

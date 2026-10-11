@@ -19,7 +19,9 @@ gpuctl service enable --user      # install the systemd unit, start at boot, sta
 gpuctl status
 ```
 
-Needs Python 3.13 and `nvidia-smi`. `gpuctl service enable --dry-run` shows the unit and commands without
+Needs Python 3.13 and `nvidia-smi`. `gpuctl init` also prints the runtime directory a sandboxed coding agent
+(Codex CLI, etc.) needs reachable, since its sandbox otherwise blocks `gpuctl` from reaching the socket; see
+[examples/HOST_AGENTS.md](examples/HOST_AGENTS.md). `gpuctl service enable --dry-run` shows the unit and commands without
 doing anything. `gpuctl service disable` stops the autostart.
 
 Per-user installs need *lingering* so the service keeps running after you log out

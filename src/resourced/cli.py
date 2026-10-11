@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import __version__, procs as proc, service
 from .client import Client, ResourcedError
-from .config import SYSTEM_CONFIG, ConfigError, load_config, user_config_path
+from .config import SYSTEM_CONFIG, SYSTEM_RUNTIME_DIR, ConfigError, default_runtime_dir, load_config, user_config_path
 from .gpus import NvidiaSmiProbe, find_nvidia_smi, nvidia_smi_missing_message
 from .resources import local_snapshot
 from .template import render_config
@@ -365,6 +365,16 @@ def cmd_init(args) -> int:
         print(f"  gpu{gpu['index']}  {gpu['uuid']}  {gpu['name']}")
     mode = "--system" if args.system else "--user"
     print(f"next: gpuctl service enable {mode}")
+    try:
+        socket_dir = SYSTEM_RUNTIME_DIR if args.system else default_runtime_dir()
+    except ConfigError:
+        socket_dir = None
+    if socket_dir:
+        print(
+            f"\nIf gpuctl runs inside a sandboxed coding agent (e.g. Codex CLI's workspace-write mode), it needs\n"
+            f"{socket_dir} reachable (plus any disk-check path you add to this config). For Codex CLI, add under\n"
+            f'[sandbox_workspace_write] in ~/.codex/config.toml: writable_roots = ["{socket_dir}/"]'
+        )
     return 0
 
 

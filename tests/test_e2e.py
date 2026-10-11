@@ -279,13 +279,28 @@ def test_init_writes_config_and_refuses_overwrite(short_tmp, monkeypatch, capfd)
 
     monkeypatch.setattr(cli, "find_nvidia_smi", lambda *a: "/fake/bin/nvidia-smi")
     monkeypatch.setattr(cli.NvidiaSmiProbe, "gpus", lambda self: [{"index": 0, "uuid": "GPU-a", "name": "Fake"}])
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(short_tmp))
+    monkeypatch.delenv("RESOURCED_RUNTIME_DIR", raising=False)
     target = short_tmp / "c.toml"
     assert main(["init", "--output", str(target)]) == 0
     text = target.read_text()
     assert 'uuid = "GPU-a"' in text
     assert 'nvidia_smi = "/fake/bin/nvidia-smi"' in text
+    out = capfd.readouterr().out
+    assert "sandboxed coding agent" in out and str(short_tmp / "resourced") in out and "writable_roots" in out
     assert main(["init", "--output", str(target)]) == 1
     assert main(["init", "--output", str(target), "--force"]) == 0
+
+
+def test_init_sandbox_hint_skipped_without_runtime_dir(short_tmp, monkeypatch, capfd):
+    from resourced import cli
+
+    monkeypatch.setattr(cli, "find_nvidia_smi", lambda *a: "/fake/bin/nvidia-smi")
+    monkeypatch.setattr(cli.NvidiaSmiProbe, "gpus", lambda self: [{"index": 0, "uuid": "GPU-a", "name": "Fake"}])
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.delenv("RESOURCED_RUNTIME_DIR", raising=False)
+    assert main(["init", "--output", str(short_tmp / "c.toml")]) == 0
+    assert "sandboxed coding agent" not in capfd.readouterr().out
 
 
 def test_agent_instructions_mention_key_commands(capfd):

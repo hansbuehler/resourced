@@ -254,8 +254,8 @@ index = 0                  # optional display hint
 [[check]]
 name = "ram"
 type = "ram"               # or "disk" (then also: path = "/data")
-warn_free_gib = 200        # any of warn_/stop_ free_gib, free_pct, used_pct
-stop_free_gib = 100
+warn_free_pct = 15         # any of warn_/stop_ free_gib, free_pct, used_pct
+stop_free_pct = 10
 ```
 
 ## Runtime state, reboot and restart

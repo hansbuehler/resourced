@@ -33,10 +33,10 @@ warn_free_pct = 15
 stop_free_pct = 10
 
 [[check]]
-name = "data"
+name = "root"
 type = "disk"
-path = "/data"
-warn_free_pct = 20
+path = "/"              # any path on the filesystem to watch
+warn_free_pct = 15
 stop_free_pct = 10
 
 [[check]]

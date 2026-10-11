@@ -287,7 +287,7 @@ index = 0                  # optional display hint
 
 [[check]]
 name = "ram"
-type = "ram"               # or "disk" (then also: path = "/data")
+type = "ram"               # or "disk" (then also: path = "/some/mount")
 warn_free_pct = 15         # any of warn_/stop_ free_gib, free_pct, used_pct
 stop_free_pct = 10
 ```

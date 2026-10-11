@@ -77,6 +77,13 @@
       release --force`) since nothing is at risk. Do not restart until
       `gpuctl resources` shows `OK` on every check again and the cause has
       been assessed.
+    - If `gpuctl resources`/`status`/`verify` fail only because the sandbox
+      cannot reach the resourced socket (not because the daemon itself is
+      down), that is an environment configuration gap, not a resource
+      emergency: do not terminate jobs on this basis alone. Report it once,
+      and ask the user to add the resourced runtime directory (and any
+      configured disk-check paths) to the sandbox's writable roots. Do not
+      escalate to bypass the sandbox without asking first.
 - Treat Git working trees (for example under `~/python`) as source
   repositories rather than general-purpose data or artifact storage.
   Regularly inspect repository status, total footprint, untracked files, and

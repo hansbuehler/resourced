@@ -67,3 +67,28 @@ def test_daemon_with_fake_nvidia_smi_end_to_end(short_tmp):
         assert client.release(alloc["ref"])["released"] == alloc["gpus"]
     finally:
         daemon.stop()
+
+
+def test_find_nvidia_smi_explicit_path_and_known_locations(short_tmp, monkeypatch):
+    from resourced import gpus
+
+    exe = fake_smi(short_tmp / "smi")
+    assert gpus.find_nvidia_smi(exe) == exe
+    assert gpus.find_nvidia_smi(str(short_tmp / "nope")) is None
+    monkeypatch.setenv("PATH", str(short_tmp / "empty"))
+    monkeypatch.setattr(gpus, "KNOWN_NVIDIA_SMI_PATHS", (str(short_tmp / "nope"), exe))
+    assert gpus.find_nvidia_smi() == exe  # not on PATH, found in a known location
+    assert gpus.find_nvidia_smi("other-tool") is None
+
+
+def test_probe_reports_why_nvidia_smi_is_missing(short_tmp, monkeypatch):
+    from resourced import gpus
+
+    monkeypatch.setenv("PATH", str(short_tmp / "empty"))
+    monkeypatch.setattr(gpus, "KNOWN_NVIDIA_SMI_PATHS", ())
+    probe = NvidiaSmiProbe("nvidia-smi", 1)
+    assert probe.gpus() is None
+    assert "not found on PATH" in probe.last_error and "nvidia_smi =" in probe.last_error
+    monkeypatch.setattr(gpus, "KNOWN_NVIDIA_SMI_PATHS", (fake_smi(short_tmp / "smi"),))
+    assert probe.gpus() == [{"index": 0, "uuid": "GPU-a", "name": "Fake"}]
+    assert probe.last_error is None

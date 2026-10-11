@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__, procs as proc, service
 from .client import Client, ResourcedError
 from .config import SYSTEM_CONFIG, ConfigError, load_config, user_config_path
-from .gpus import NvidiaSmiProbe
+from .gpus import NvidiaSmiProbe, find_nvidia_smi, nvidia_smi_missing_message
 from .resources import local_snapshot
 from .template import render_config
 
@@ -258,7 +258,8 @@ def cmd_status(args) -> int:
         f"(resourced {__version__}, pid {status['pid']}, up {fmt_age(status['uptime_s'])})"
     )
     if status["driver"] != "ok":
-        print("  warning: nvidia-smi is not answering; GPU presence and process checks are unknown")
+        print("  warning: GPU presence and process checks are unknown")
+        print(f"    {status.get('driver_error') or 'nvidia-smi is not answering'}")
     for row in status["gpus"]:
         index = "?" if row["index"] is None else row["index"]
         flag = "  (MISSING from driver)" if row["present"] is False else ""
@@ -291,7 +292,8 @@ def cmd_verify(args) -> int:
         print_json(result)
         return 0 if result["healthy"] else 1
     if result["probe"] == "unknown":
-        print("warning: nvidia-smi is not answering; process checks are unknown")
+        print("warning: process checks are unknown")
+        print(f"  {result.get('probe_error') or 'nvidia-smi is not answering'}")
     for row in result["gpus"]:
         line = f"{row['alias']:<8} {row['state']}"
         if row["allocation"]:
@@ -342,16 +344,22 @@ def cmd_resources(args) -> int:
 
 
 def cmd_init(args) -> int:
-    gpus = NvidiaSmiProbe().gpus()
+    nvidia_smi = find_nvidia_smi()
+    if nvidia_smi is None:
+        print(f"gpuctl: cannot create a config: {nvidia_smi_missing_message()}", file=sys.stderr)
+        return 1
+    probe = NvidiaSmiProbe(nvidia_smi)
+    gpus = probe.gpus()
     if not gpus:
-        print("gpuctl: nvidia-smi did not list any GPUs; cannot create a config.", file=sys.stderr)
+        reason = probe.last_error or "nvidia-smi did not list any GPUs"
+        print(f"gpuctl: cannot create a config: {reason}", file=sys.stderr)
         return 1
     target = Path(args.output) if args.output else (SYSTEM_CONFIG if args.system else user_config_path())
     if target.exists() and not args.force:
         print(f"gpuctl: {target} already exists (use --force to overwrite)", file=sys.stderr)
         return 1
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_config(gpus, system=args.system))
+    target.write_text(render_config(gpus, system=args.system, nvidia_smi=nvidia_smi))
     print(f"wrote {target} with {len(gpus)} GPU(s):")
     for gpu in gpus:
         print(f"  gpu{gpu['index']}  {gpu['uuid']}  {gpu['name']}")

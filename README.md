@@ -38,18 +38,94 @@ claims survive a restart.
 There must be **exactly one daemon per set of GPUs**. Several users on one machine share one system install;
 separate per-user daemons would not see each other's claims and could hand out the same GPU twice.
 
-System install (as root):
+### System-wide install (several users)
+
+The service runs as a dedicated `resourced` account, which cannot read home directories. Install the package
+in a location every user can read, such as a virtualenv under `/opt` (not `pipx` in your home directory), and run
+every `gpuctl` command below from that environment: the unit records the Python that runs `service enable`.
 
 ```sh
-sudo gpuctl init --system                  # writes /etc/resourced/config.toml
-sudo groupadd gpuusers && sudo usermod -aG gpuusers alice     # then set socket_group = "gpuusers" in the config
-sudo gpuctl service enable --system        # creates the 'resourced' account, installs and starts the unit
+# 1. Install where the 'resourced' account can read it (needs Python 3.13)
+sudo python3.13 -m venv /opt/resourced
+sudo /opt/resourced/bin/pip install git+https://github.com/hansbuehler/resourced
+sudo ln -s /opt/resourced/bin/gpuctl /usr/local/bin/gpuctl        # optional: gpuctl for all users
+
+# 2. Write /etc/resourced/config.toml from nvidia-smi
+sudo /opt/resourced/bin/gpuctl init --system
+
+# 3. Create the access group and add users (log in again for membership to apply)
+sudo groupadd gpuusers
+sudo usermod -aG gpuusers alice
+
+# 4. Edit /etc/resourced/config.toml: uncomment/set  socket_group = "gpuusers"  (and any resource checks)
+
+# 5. Preview, then install and start
+sudo /opt/resourced/bin/gpuctl service enable --system --dry-run
+sudo /opt/resourced/bin/gpuctl service enable --system     # creates the account, writes the unit, enables and starts it
+gpuctl status
 ```
 
-Install the package somewhere the `resourced` account can read (for example a virtualenv under `/opt`, not a
-private home directory) and run the command from that environment; it warns otherwise. The CLI finds the
-socket by itself (`--socket`, `RESOURCED_SOCKET`, the config's `runtime_dir`, `$XDG_RUNTIME_DIR/resourced/`,
-then `/run/resourced/`), so users of the shared install need no configuration.
+Notes:
+
+- **Set `socket_group` before step 5.** Without it the socket is private (0600, owned by `resourced`) and ordinary
+  users get `no permission to use ... socket`. The unit adds the group to the service account automatically.
+- The CLI finds the socket by itself (`--socket`, `RESOURCED_SOCKET`, the config's `runtime_dir`,
+  `$XDG_RUNTIME_DIR/resourced/`, then `/run/resourced/`), so users of the shared install need no configuration.
+- Run only one daemon per set of GPUs: `gpuctl service disable --user` any per-user service first.
+- System services start at boot; lingering is not needed.
+- Update: `sudo /opt/resourced/bin/pip install --upgrade git+https://github.com/hansbuehler/resourced`, then
+  `sudo systemctl restart resourced` (claims survive).
+- Remove: `sudo /opt/resourced/bin/gpuctl service disable --system`.
+- Logs: `journalctl -u resourced`; state: `systemctl status resourced`.
+
+### Manual unit files
+
+`gpuctl service enable` writes these for you (with the real interpreter and config path). To install by hand, save
+the user unit as `~/.config/systemd/user/resourced.service` and run
+`systemctl --user daemon-reload && systemctl --user enable --now resourced`:
+
+```ini
+[Unit]
+Description=resourced: GPU allocation and resource limits
+
+[Service]
+Type=simple
+ExecStart=/path/to/python -m resourced.daemon --config /path/to/config.toml
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+```
+
+For the system unit, create the account first
+(`sudo useradd --system --no-create-home --shell /usr/sbin/nologin resourced`), save it as
+`/etc/systemd/system/resourced.service`, and run `sudo systemctl daemon-reload && sudo systemctl enable --now resourced`:
+
+```ini
+[Unit]
+Description=resourced: GPU allocation and resource limits
+After=local-fs.target
+
+[Service]
+Type=simple
+User=resourced
+SupplementaryGroups=gpuusers
+Environment=RESOURCED_RUNTIME_DIR=/run/resourced
+ExecStart=/opt/resourced/bin/python -m resourced.daemon --config /etc/resourced/config.toml
+RuntimeDirectory=resourced
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Do not add `PrivateTmp` or similar settings that hide the socket or the monitored filesystems.
 
 ## Using GPUs
 
@@ -206,7 +282,9 @@ There is no database and nothing is stored in `/tmp`. The runtime directory (tmp
 | Symptom | Check |
 | --- | --- |
 | `cannot find the resourced socket` | Is the daemon running? `systemctl --user status resourced`, `gpuctl service enable --user` |
-| `no permission to use ... socket` | Join the socket group of the shared install |
+| `no permission to use ... socket` | Join the socket group of the shared install and log in again; if no `socket_group` is set in the config, set it and restart the service |
+| System service fails to start (`status=203/EXEC`) | The Python in `ExecStart` is not readable by `resourced` (home directory?); reinstall under `/opt` and re-run `service enable --system` |
+| `nvidia-smi not found ...` in `gpuctl status` or the log | `gpuctl init` records the path it found; otherwise the daemon searches `PATH`, `/usr/lib/wsl/lib`, `/usr/bin`, `/usr/local/bin`. Install the driver or set `nvidia_smi = "/full/path"` under `[daemon]` |
 | Daemon exits right away | Run `resourced --config <file>` in a terminal; messages are printed (bad config, duplicate daemon, ...) |
 | `XDG_RUNTIME_DIR is not set` | Set `runtime_dir` in the config, or use a login session / lingering |
 | Claims vanish after logout | Per-user service without lingering: `sudo loginctl enable-linger $USER` |

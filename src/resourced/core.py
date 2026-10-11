@@ -449,6 +449,7 @@ class Core:
             "mine": mine,
             "unmanaged_claims": unmanaged,
             "driver": "ok" if driver is not None else "unavailable",
+            "driver_error": None if driver is not None else getattr(self.probe, "last_error", None),
         }
 
     def verify(self, params: dict, peer: dict) -> dict:
@@ -496,7 +497,12 @@ class Core:
                     }
                 )
         problems = [r for r in rows if r["state"] in ("UNCLAIMED USE", "FOREIGN PROCESS")]
-        return {"healthy": not problems, "probe": "unknown" if procs is None else "ok", "gpus": rows}
+        return {
+            "healthy": not problems,
+            "probe": "unknown" if procs is None else "ok",
+            "probe_error": None if procs is not None else getattr(self.probe, "last_error", None),
+            "gpus": rows,
+        }
 
     def resources(self, params: dict, peer: dict) -> dict:
         if self.monitor is not None:

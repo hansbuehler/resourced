@@ -140,6 +140,11 @@ class Daemon:
         except BaseException:
             self._release_lock()
             raise
+        if isinstance(self.probe, NvidiaSmiProbe) and self.probe.gpus() is None:
+            log.error(
+                "GPU presence and process checks are off until nvidia-smi works (claims still work; "
+                "the daemon recovers by itself once it does)"
+            )
         self.monitor.start()
         self._thread = threading.Thread(target=self.server.serve_forever, name="server", daemon=True)
         self._thread.start()

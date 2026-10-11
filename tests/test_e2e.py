@@ -277,10 +277,13 @@ def test_resources_fall_back_to_local_measurement(short_tmp, capfd, monkeypatch)
 def test_init_writes_config_and_refuses_overwrite(short_tmp, monkeypatch, capfd):
     from resourced import cli
 
+    monkeypatch.setattr(cli, "find_nvidia_smi", lambda *a: "/fake/bin/nvidia-smi")
     monkeypatch.setattr(cli.NvidiaSmiProbe, "gpus", lambda self: [{"index": 0, "uuid": "GPU-a", "name": "Fake"}])
     target = short_tmp / "c.toml"
     assert main(["init", "--output", str(target)]) == 0
-    assert 'uuid = "GPU-a"' in target.read_text()
+    text = target.read_text()
+    assert 'uuid = "GPU-a"' in text
+    assert 'nvidia_smi = "/fake/bin/nvidia-smi"' in text
     assert main(["init", "--output", str(target)]) == 1
     assert main(["init", "--output", str(target), "--force"]) == 0
 
@@ -290,3 +293,14 @@ def test_agent_instructions_mention_key_commands(capfd):
     out = capfd.readouterr().out
     for text in ("gpuctl run --gpus", "--owner-pid", "gpuctl release", "gpuctl resources"):
         assert text in out
+
+
+def test_init_explains_missing_nvidia_smi(short_tmp, monkeypatch, capfd):
+    from resourced import cli
+
+    monkeypatch.setattr(cli, "find_nvidia_smi", lambda *a: None)
+    target = short_tmp / "c.toml"
+    assert main(["init", "--output", str(target)]) == 1
+    err = capfd.readouterr().err
+    assert "nvidia-smi not found" in err and "nvidia_smi =" in err
+    assert not target.exists()

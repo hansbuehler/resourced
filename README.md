@@ -25,6 +25,11 @@ commands in a sandbox need one extra setting, see [Sandboxed coding agents](#san
 `gpuctl service enable --dry-run` shows the unit and commands without
 doing anything. `gpuctl service disable` stops the autostart.
 
+On a machine used by coding agents, finish initialization by merging
+[the host guardrails](examples/HOST_AGENTS.md) and the output of `gpuctl agent-instructions` into the agent's
+user-level instructions. See [Telling agents about it](#telling-agents-about-it) for the destinations and the
+project-level template.
+
 Per-user installs need *lingering* so the service keeps running after you log out
 (`sudo loginctl enable-linger $USER`); `gpuctl service enable --user` tells you when it is off.
 

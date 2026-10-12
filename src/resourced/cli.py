@@ -364,7 +364,8 @@ def cmd_init(args) -> int:
     for gpu in gpus:
         print(f"  gpu{gpu['index']}  {gpu['uuid']}  {gpu['name']}")
     mode = "--system" if args.system else "--user"
-    print(f"next: gpuctl service enable {mode}")
+    config_arg = f" --config {shlex.quote(str(target.resolve()))}" if args.output else ""
+    print(f"next: gpuctl service enable {mode}{config_arg}")
     try:
         socket_dir = SYSTEM_RUNTIME_DIR if args.system else default_runtime_dir()
     except ConfigError:
@@ -375,6 +376,10 @@ def cmd_init(args) -> int:
             f"in {socket_dir}. Codex CLI blocks it unless commands have network access; in ~/.codex/config.toml set\n"
             f'sandbox_mode = "workspace-write" and, under [sandbox_workspace_write], network_access = true.'
         )
+    print(
+        "\nAgent setup: install the host guardrails and the output of `gpuctl agent-instructions`; see\n"
+        "https://github.com/hansbuehler/resourced#telling-agents-about-it"
+    )
     return 0
 
 

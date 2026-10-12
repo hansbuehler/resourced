@@ -4,12 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "resourced"
-version = "0.1.0"
+version = "1.0.0"
 description = "Lightweight cooperative GPU allocation and advisory resource limits for one machine"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/hansbuehler/resourced"
+Documentation = "https://github.com/hansbuehler/resourced#readme"
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
